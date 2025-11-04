@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfil de {{ data.profile.personaname }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+</head><body>
+    <div class="container">
+
+        <a href="{{ url_for('index') }}" class="back-button">&larr; Nova Busca</a>
+
+        <div class="profile-header">
+            <img src="{{ data.profile.avatarfull }}" alt="Avatar" class="profile-avatar">
+            <div class="profile-info">
+                <h1>{{ data.profile.personaname }}</h1>
+                {% if data.playtime_cs2_hours > 0 %}
+                    <p>Tempo de Jogo CS2: <strong>{{ data.playtime_cs2_hours }} horas</strong></p>
+                {% else %}
+                    <p>Tempo de Jogo CS2: <strong>Privado ou N/A</strong></p>
+                {% endif %}
+            </div>
+            
+            <div class="profile-links">
+                <a href="{{ data.profile.profileurl }}" class="icon-button" target="_blank" title="Ver perfil na Steam">
+                    <img src="{{ url_for('static', filename='img/steam_icon.png') }}" alt="Steam">
+                </a>
+                {% if data.faceit %}
+                <a href="https://www.faceit.com/pt/players/{{ data.faceit.profile.nickname }}" class="icon-button" target="_blank" title="Ver perfil na FACEIT">
+                    <img src="{{ url_for('static', filename='img/faceit_icon.png') }}" alt="FACEIT">
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="showTab('steam')">Steam (Matchmaking)</button>
+            <button class="tab-button" onclick="showTab('faceit')">FACEIT</button>
+        </div>
+
+        <div id="steam" class="tab-content active">
+            
+            {% if not data.profile_public %}
+                <div class="card error-card">
+                    <h2>Perfil Privado</h2>
+                    <p>As estatísticas de jogo deste usuário são privadas. Não é possível exibir os dados.</p>
+                </div>
+            {% else %}
+                <h2>📊 Estatísticas de Combate (Geral)</h2>
+                <div class="stats-grid">
+                    <div class="card">
+                        <h3>Total de Abates</h3>
+                        <p>{{ data.stats.get('total_kills', 0) | int }}</p>
+                    </div>
+                    <div class="card">
+                        <h3>Total de Mortes</h3>
+                        <p>{{ data.stats.get('total_deaths', 0) | int }}</p>
+                    </div>
+                    <div class="card">
+                        <h3>K/D (Geral)</h3>
+                        <p>{{ "%.2f"|format(data.stats.get('total_kills', 0) / data.stats.get('total_deaths', 1)) }}</p>
+                    </div>
+                    <div class="card">
+                        <h3>Total de Abates HS</h3>
+                        <p>{{ data.stats.get('total_kills_headshot', 0) | int }}</p>
+                    </div>
+                    <div class="card">
+                        <h3>% de HS</h3>
+                        <p>{{ "%.1f"|format(data.stats.get('total_kills_headshot', 0) * 100 / data.stats.get('total_kills', 1)) }}%</p>
+                    </div>
+                </div>
+
+                <h2>🏆 Desempenho em Partidas (Geral)</h2>
+                <div class="stats-grid">
+                    <div class="card">
+                        <h3>Vitórias</h3>
+                        <p>{{ data.stats.get('total_wins', 0) | int }}</p>
+                    </div>
+                    <div class="card">
+                        <h3>Taxa de Vitória</h3>
+                        <p>{{ "%.1f"|format(data.stats.get('total_wins', 0) * 10 / data.stats.get('total_matches_played', 1)) }}%</p>
+                    </div>
+                    <div class="card">
+                        <h3>Total de MVPs</h3>
+                        <p>{{ data.stats.get('total_mvps', 0) | int }}</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div id="faceit" class="tab-content">
+            
+            {% if data.faceit %}
+                
+                <h2>🚀 Estatísticas FACEIT (Geral)</h2>
+                <div class="stats-grid">
+                    <div class="card">
+                        <h3>Nível</h3>
+                        <img src="{{ url_for('static', filename='img/faceit_levels/' + (data.faceit.profile.games.cs2.skill_level | string) + '.png') }}" alt="Nível {{ data.faceit.profile.games.cs2.skill_level }}" class="faceit-level-img">
+                    </div>
+                    <div class="card">
+                        <h3>ELO</h3>
+                        <p>{{ data.faceit.profile.games.cs2.faceit_elo }}</p>
+                    </div>
+                    <div class="card">
+                        <h3>K/D (FACEIT)</h3>
+                        <p>{{ data.faceit.stats.get('Average K/D Ratio', 'N/A') }}</p>
+                    </div>
+                    <div class="card">
+                        <h3>% de HS (FACEIT)</h3>
+                        <p>{{ data.faceit.stats.get('Average Headshots %', 'N/A') }}%</p>
+                    </div>
+                </div>
+
+                <h2>📜 Histórico de Partidas (Últimas 10)</h2>
+                <div class="match-history-list">
+                    {% for match in data.faceit.history %}
+                        
+                        {% if 'stats' in match %}
+                            <div class="match-item {% if match.stats.result == 'Venceu' %}match-win{% else %}match-loss{% endif %}">
+                                <div class="match-map">
+                                    <img src="{{ url_for('static', filename='img/maps/' + match.stats.map + '.png') }}" class="match-map-icon" alt="{{ match.stats.map }}">
+                                    <span>{{ match.stats.map | replace('de_', '') }}</span>
+                                </div>
+                                <div class="match-score">
+                                    <strong>{{ match.stats.score }}</strong>
+                                </div>
+                                <div class="match-stats">
+                                    K/D: {{ "%.2f"|format(match.stats.kills|int / (match.stats.deaths|int if match.stats.deaths|int > 0 else 1)) }}
+                                    ({{ match.stats.kills }}K / {{ match.stats.deaths }}D / {{ match.stats.assists }}A)
+                                </div>
+                                <div class="match-result">
+                                    {% if match.stats.result == 'Venceu' %}
+                                        VITÓRIA
+                                    {% else %}
+                                        DERROTA
+                                    {% endif %}
+                                </div>
+                            </div>
+                        
+                        {% else %}
+                            <div class="match-item match-incomplete">
+                                <div class="match-map">
+                                    <img src="{{ url_for('static', filename='img/maps/' + match.game_map + '.png') }}" class="match-map-icon" alt="{{ match.game_map }}">
+                                    <span>{{ match.game_map | replace('de_', '') }}</span>
+                                </div>
+                                <div class="match-stats-incomplete">
+                                    Partida Incompleta
+                                </div>
+                            </div>
+                        {% endif %}
+
+                    {% endfor %}
+                </div>
+
+            {% else %}
+                <div class="card error-card">
+                    <h2>Conta não encontrada</h2>
+                    <p>Este perfil Steam não parece estar conectado a uma conta FACEIT ou não foi encontrado.</p>
+                </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            var tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(function(content) {
+                content.style.display = 'none';
+                content.classList.remove('active');
+            });
+
+            var tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(function(button) {
+                button.classList.remove('active');
+            });
+
+            document.getElementById(tabId).style.display = 'block';
+            document.getElementById(tabId).classList.add('active');
+
+            document.querySelector('.tab-button[onclick="showTab(\'' + tabId + '\')"]').classList.add('active');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            showTab('steam');
+        });
+    </script>
+</body>
+</html>
