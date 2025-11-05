@@ -3,21 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buscar Jogador</title>
+    <title>CSMetrics - Buscar Jogador</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/reduzidosemfundo.png') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Buscar Estatísticas de Jogador</h1>
-        <p>Insira a URL do perfil Steam, nome customizado ou SteamID64</p>
-        
-        <form action="{{ url_for('search') }}" method="GET" class="search-form">
-            <input type="text" name="query" placeholder="Ex: steamcommunity.com/id/NomeDoJogador" required>
-            <button type="submit">Buscar</button>
-        </form>
+
+    <div class="navbar-main">
+        <div class="header-nav">
+            <div class="site-branding">
+                <a href="{{ url_for('index') }}">
+                    <img src="{{ url_for('static', filename='img/csmetrics_logo.png') }}" alt="CSMetrics Logo" class="site-logo-header">
+                </a>
+            </div>
+
+            {% if current_user.is_authenticated %}
+                <div class="auth-buttons">
+                    <a href="{{ url_for('post_clip') }}" class="button-login">Postar Clipe</a>
+                    <a href="{{ url_for('account') }}" class="button-register">Minha Conta</a>
+                    <a href="{{ url_for('logout') }}" class="button-logout">Logout</a>
+                </div>
+            {% else %}
+                <div class="auth-buttons">
+                    <a href="{{ url_for('login') }}" class="button-login">Login</a>
+                    <a href="{{ url_for('register') }}" class="button-register">Registrar-se</a>
+                </div>
+            {% endif %}
+        </div>
     </div>
+
+    <div class="container">
+        <div class="main-content-centered">
+            <h1>Buscar Estatísticas de Jogador</h1>
+            <p>Insira a URL do perfil Steam, nome customizado ou SteamID64</p>
+            
+            <form action="{{ url_for('search') }}" method="GET" class="search-form-main">
+                <input type="text" name="query" placeholder="Ex: steamcommunity.com/id/NomeDoJogador" required>
+                <button type="submit">Buscar</button>
+            </form>
+        </div>
+
+        <div class="clip-feed-container">
+            <h2>Últimos Clipes da Comunidade</h2>
+            
+            <div class="clips-grid">
+                {% if clips %}
+                    {% for clip in clips %}
+                        <div class="clip-card">
+                            {% set embed_url = get_embed_url(clip.video_url) %}
+                            {% if embed_url %}
+                                <div class="clip-embed">
+                                    <iframe src="{{ embed_url }}" 
+                                            frameborder="0" 
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                            allowfullscreen>
+                                    </iframe>
+                                </div>
+                            {% else %}
+                                <div class="clip-embed-error">
+                                    <p>Não foi possível embutir este vídeo. (Suporta apenas YouTube)</p>
+                                    <a href="{{ clip.video_url }}" target="_blank">Ver link</a>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="clip-info">
+                                <a href="{{ url_for('user_profile', username=clip.author.username) }}" class="clip-author-link">
+                                    <img src="{{ url_for('static', filename='img/profile_pics/' + clip.author.avatar_url) }}" alt="Avatar" class="user-avatar-small">
+                                    <span>{{ clip.author.username }}</span>
+                                </a>
+                                <h3 class="clip-title">{{ clip.title }}</h3>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p>Ainda não há clipes. Seja o primeiro a postar!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

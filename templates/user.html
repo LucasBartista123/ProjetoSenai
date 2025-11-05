@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSMetrics - Perfil de {{ user.username }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/reduzidosemfundo.png') }}">
+</head>
+<body>
+    <div class="container">
+        
+        <a href="{{ url_for('index') }}" class="back-button">&larr; Voltar</a>
+
+        <div class="public-profile-header">
+            <img class="account-avatar" src="{{ image_file }}">
+            <h1>{{ user.username }}</h1>
+        </div>
+
+        <h2>Clipes de {{ user.username }}</h2>
+        <div class="clips-grid">
+            {% if clips %}
+                {% for clip in clips %}
+                    <div class="clip-card">
+                        {% set embed_url = get_embed_url(clip.video_url) %}
+                        {% if embed_url %}
+                            <div class="clip-embed">
+                                <iframe src="{{ embed_url }}" 
+                                        frameborder="0" 
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                        allowfullscreen>
+                                </iframe>
+                            </div>
+                        {% else %}
+                             <div class="clip-embed-error">
+                                <p>Não foi possível embutir este vídeo. (Suporta apenas YouTube)</p>
+                                <a href="{{ clip.video_url }}" target="_blank">Ver link</a>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="clip-info">
+                            <h3 class="clip-title">{{ clip.title }}</h3>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>Este usuário ainda não postou nenhum clipe.</p>
+            {% endif %}
+        </div>
+
+    </div>
+</body>
+</html>
