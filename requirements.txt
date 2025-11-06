@@ -2,3 +2,9 @@ Flask
 requests
 python-dotenv
 gunicorn
+Flask-SQLAlchemy
+psycopg2-binary
+Flask-Login
+Flask-WTF
+Flask-Bcrypt
+Pillow
