@@ -14,18 +14,35 @@ from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, Le
 from flask_bcrypt import Bcrypt
 from datetime import datetime
 
-load_dotenv() 
+# --- Carregar variáveis de ambiente ---
+# Garante que o .env seja encontrado mesmo se rodar de outro diretório
+from pathlib import Path
+env_path = Path(__file__).resolve().parent / '.env'
+load_dotenv(env_path)
 
 app = Flask(__name__)
 
+# --- Variáveis de ambiente obrigatórias ---
 STEAM_API_KEY = os.getenv("STEAM_API_KEY")
-FACEIT_API_KEY = os.getenv("FACEIT_API_KEY") 
+FACEIT_API_KEY = os.getenv("FACEIT_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
 SECRET_KEY = os.getenv("SECRET_KEY")
 
-if not all([STEAM_API_KEY, FACEIT_API_KEY, DATABASE_URL, SECRET_KEY]):
-    raise ValueError("Variáveis de ambiente não encontradas. Verifique seu .env")
+# Verifica se todas as variáveis foram carregadas
+missing_envs = [k for k, v in {
+    "STEAM_API_KEY": STEAM_API_KEY,
+    "FACEIT_API_KEY": FACEIT_API_KEY,
+    "DATABASE_URL": DATABASE_URL,
+    "SECRET_KEY": SECRET_KEY
+}.items() if not v]
 
+if missing_envs:
+    raise ValueError(
+        f"As seguintes variáveis de ambiente não foram encontradas: {', '.join(missing_envs)}. "
+        f"Verifique seu arquivo .env ou as variáveis no painel da Square Cloud."
+    )
+
+# --- Configuração do Flask e banco ---
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -37,6 +54,7 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'Você precisa estar logado para ver esta página.'
 login_manager.login_message_category = 'info'
 
+# --- Modelos do banco ---
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
     
@@ -75,6 +93,7 @@ class Clip(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+# --- Formulários ---
 class RegistrationForm(FlaskForm):
     username = StringField('Nome de Usuário', validators=[DataRequired(), Length(min=2, max=20)])
     email = StringField('Email', validators=[DataRequired()])
@@ -120,6 +139,7 @@ class ClipForm(FlaskForm):
     video_url = StringField('URL do Vídeo (Apenas YouTube)', validators=[DataRequired(), URL()])
     submit = SubmitField('Postar Clipe')
 
+# --- Funções auxiliares ---
 def save_picture(form_picture):
     random_hex = secrets.token_hex(8)
     _, f_ext = os.path.splitext(form_picture.filename)
@@ -135,20 +155,18 @@ def save_picture(form_picture):
 
 def get_embed_url(video_url):
     youtube_regex = re.compile(
-        r'(https?://)?(www\.)?'
-        '(youtube\.com/watch\?v=|youtu\.be/|youtube\.com/shorts/)'
-        '([A-Za-z0-9_-]{11})'
+        r'(https?://)?(www\.)?(youtube\.com/watch\?v=|youtu\.be/|youtube\.com/shorts/)([A-Za-z0-9_-]{11})'
     )
     match = youtube_regex.search(video_url)
     if match:
         return f"https://www.youtube.com/embed/{match.group(4)}"
-    
     return None
 
 @app.context_processor
 def utility_processor():
     return dict(get_embed_url=get_embed_url)
 
+# --- Constantes da Steam e Faceit ---
 STEAM_API_BASE_URL = "http://api.steampowered.com"
 RESOLVE_VANITY_URL = f"{STEAM_API_BASE_URL}/ISteamUser/ResolveVanityURL/v0001/"
 GET_PLAYER_SUMMARIES = f"{STEAM_API_BASE_URL}/ISteamUser/GetPlayerSummaries/v0002/"
@@ -158,6 +176,7 @@ CS2_APP_ID = 730
 
 FACEIT_API_BASE_URL = "https://open.faceit.com/data/v4"
 
+# --- Funções API Steam ---
 def get_steam_id64(input_query):
     identifier = input_query.strip("/").split("/")[-1]
     
@@ -186,15 +205,10 @@ def get_player_data(steam_id64):
         params_summary = {'key': STEAM_API_KEY, 'steamids': steam_id64}
         resp_summary = requests.get(GET_PLAYER_SUMMARIES, params=params_summary, timeout=5).json()
         if not resp_summary['response']['players']:
-             return {'error': 'Jogador não encontrado com este SteamID.'}
+            return {'error': 'Jogador não encontrado com este SteamID.'}
         player_data['profile'] = resp_summary['response']['players'][0]
 
-        params_games = {
-            'key': STEAM_API_KEY, 
-            'steamid': steam_id64, 
-            'format': 'json', 
-            'include_played_free_games': 1 
-        }
+        params_games = {'key': STEAM_API_KEY, 'steamid': steam_id64, 'format': 'json', 'include_played_free_games': 1}
         resp_games = requests.get(GET_OWNED_GAMES, params=params_games, timeout=5).json()
         player_data['playtime_cs2_hours'] = 0
         if 'response' in resp_games and 'games' in resp_games['response']:
@@ -221,11 +235,9 @@ def get_player_data(steam_id64):
 
     return player_data
 
+# --- Função API Faceit ---
 def get_faceit_data(steam_id64):
-    headers = {
-        'Authorization': f'Bearer {FACEIT_API_KEY}',
-        'accept': 'application/json'
-    }
+    headers = {'Authorization': f'Bearer {FACEIT_API_KEY}', 'accept': 'application/json'}
     faceit_data = {}
 
     try:
@@ -279,10 +291,8 @@ def get_faceit_data(steam_id64):
             for team in stats_data.get('rounds', [{}])[0].get('teams', []):
                 for player in team.get('players', []):
                     if player.get('player_id') == player_id:
-                        
                         player_stats = player.get('player_stats', {})
                         round_stats = stats_data.get('rounds', [{}])[0].get('round_stats', {})
-                        
                         match['stats'] = {
                             'result': 'Venceu' if player_stats.get('Result') == '1' else 'Perdeu',
                             'score': round_stats.get('Score', 'N/A'),
@@ -306,6 +316,7 @@ def get_faceit_data(steam_id64):
 
     return faceit_data
 
+# --- Rotas Flask ---
 @app.route('/')
 def index():
     clips = Clip.query.order_by(Clip.date_posted.desc()).all()
@@ -406,6 +417,7 @@ def post_clip():
         return redirect(url_for('user_profile', username=current_user.username))
     return render_template('postar_clipe.html', title='Postar Clipe', form=form)
 
+# --- Inicialização ---
 if __name__ == '__main__':
     os.environ['FLASK_ENV'] = 'development'
     app.run(debug=True)
